@@ -16,13 +16,13 @@ Index has more `user_updates` than total reads, causing unnecessary overhead dur
 ```sql
 -- Find which queries use this index
 SELECT 
-    qt.query_sql_text,
+    qt.text,
     qs.execution_count,
     qs.total_logical_reads,
     qs.last_execution_time
 FROM sys.dm_exec_query_stats qs
 CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) qt
-WHERE qt.query_sql_text LIKE '%your_table_name%'
+WHERE qt.text LIKE '%your_table_name%'
 ORDER BY qs.last_execution_time DESC;
 ```
 
@@ -61,14 +61,14 @@ Index is being scanned entirely instead of used for efficient seeks, indicating 
 ```sql
 -- Find queries causing scans
 SELECT 
-    qt.query_sql_text,
+    qt.text,
     qs.execution_count,
     qs.total_logical_reads/qs.execution_count as avg_reads,
     qp.query_plan
 FROM sys.dm_exec_query_stats qs
 CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) qt
 CROSS APPLY sys.dm_exec_query_plan(qs.plan_handle) qp
-WHERE qt.query_sql_text LIKE '%your_table_name%'
+WHERE qt.text LIKE '%your_table_name%'
 AND qs.total_logical_reads > 1000;
 ```
 
@@ -118,18 +118,18 @@ Index has both seeks and scans, but scans significantly outnumber seeks (ratio >
 -- Find both efficient and inefficient queries
 WITH QueryAnalysis AS (
     SELECT 
-        qt.query_sql_text,
+        qt.text,
         qs.execution_count,
         qs.total_logical_reads,
         CASE 
-            WHEN qt.query_sql_text LIKE '%WHERE%=%' THEN 'Likely Seek'
-            WHEN qt.query_sql_text LIKE '%WHERE%LIKE%' THEN 'Likely Scan'
-            WHEN qt.query_sql_text LIKE '%ORDER BY%' THEN 'Possible Scan'
+            WHEN qt.text LIKE '%WHERE%=%' THEN 'Likely Seek'
+            WHEN qt.text LIKE '%WHERE%LIKE%' THEN 'Likely Scan'
+            WHEN qt.text LIKE '%ORDER BY%' THEN 'Possible Scan'
             ELSE 'Unknown'
         END as predicted_operation
     FROM sys.dm_exec_query_stats qs
     CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) qt
-    WHERE qt.query_sql_text LIKE '%YourTable%'
+    WHERE qt.text LIKE '%YourTable%'
 )
 SELECT * FROM QueryAnalysis
 ORDER BY total_logical_reads DESC;
@@ -171,14 +171,14 @@ High `user_lookups` indicates queries use the non-clustered index for seeks but 
 ```sql
 -- Find queries with key lookups
 SELECT 
-    qt.query_sql_text,
+    qt.text,
     qs.execution_count,
     qs.total_logical_reads,
     qp.query_plan
 FROM sys.dm_exec_query_stats qs
 CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) qt
 CROSS APPLY sys.dm_exec_query_plan(qs.plan_handle) qp
-WHERE qt.query_sql_text LIKE '%YourTable%'
+WHERE qt.text LIKE '%YourTable%'
 AND CAST(qp.query_plan AS NVARCHAR(MAX)) LIKE '%KeyLookup%';
 ```
 
